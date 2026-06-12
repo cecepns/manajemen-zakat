@@ -12,5 +12,12 @@ export const formatDateTime = (date) =>
 
 export const parseCurrency = (value) => {
   if (typeof value === "number") return value;
+  if (value === "" || value === null || value === undefined) return 0;
   return parseFloat(String(value).replace(/[^\d]/g, "")) || 0;
+};
+
+export const toNumber = (value) => {
+  if (value === "" || value === null || value === undefined) return 0;
+  if (typeof value === "number") return value;
+  return parseFloat(String(value).replace(/[^\d.]/g, "")) || 0;
 };
