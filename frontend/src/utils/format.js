@@ -1,0 +1,16 @@
+export const formatCurrency = (value) =>
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value || 0);
+
+export const formatNumber = (value) =>
+  new Intl.NumberFormat("id-ID").format(value || 0);
+
+export const formatDate = (date) =>
+  date ? new Date(date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-";
+
+export const formatDateTime = (date) =>
+  date ? new Date(date).toLocaleString("id-ID") : "-";
+
+export const parseCurrency = (value) => {
+  if (typeof value === "number") return value;
+  return parseFloat(String(value).replace(/[^\d]/g, "")) || 0;
+};

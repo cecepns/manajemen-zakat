@@ -1,0 +1,165 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { Save, Eye } from "lucide-react";
+import { get, post } from "@/utils/request";
+import { API_ENDPOINTS } from "@/utils/endpoints";
+import { formatCurrency } from "@/utils/format";
+import { Modal } from "@/components/ui/Modal";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+
+const emptyForm = {
+  muzakki_name: "", muzakki_phone: "", muzakki_address: "",
+  fitrah_jiwa: 0, rice_price_per_jiwa: 0, fitrah_rice_kg: 0,
+  maal: 0, fidyah: 0, infaq: 0, payment: 0,
+};
+
+export default function PaymentPage() {
+  const [form, setForm] = useState(emptyForm);
+  const [settings, setSettings] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    get(API_ENDPOINTS.SETTINGS.LIST).then((res) => {
+      setSettings(res.data);
+      setForm((f) => ({ ...f, rice_price_per_jiwa: parseFloat(res.data.rice_price_per_jiwa) || 20000 }));
+    });
+  }, []);
+
+  const fitrahMoney = (form.fitrah_jiwa || 0) * (form.rice_price_per_jiwa || 0);
+  const grandTotal = fitrahMoney + (form.maal || 0) + (form.fidyah || 0) + (form.infaq || 0);
+  const changeMoney = (form.payment || 0) - grandTotal;
+
+  const update = (field, value) => setForm((f) => ({ ...f, [field]: value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.muzakki_name || !form.muzakki_phone) return toast.error("Nama dan HP wajib diisi");
+    if (form.payment < grandTotal) return toast.error("Pembayaran kurang dari total");
+    if (grandTotal <= 0) return toast.error("Total zakat harus lebih dari 0");
+
+    setLoading(true);
+    try {
+      const res = await post(API_ENDPOINTS.TRANSACTIONS.CREATE, form);
+      setPreview(res.data);
+      setShowPreview(true);
+      toast.success("Transaksi berhasil disimpan");
+      setForm({ ...emptyForm, rice_price_per_jiwa: form.rice_price_per_jiwa });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gagal menyimpan");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-6">Input Pembayaran Zakat</h1>
+
+      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
+        <section className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold mb-4">Data Muzakki</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Nama Muzakki *</label>
+              <input value={form.muzakki_name} onChange={(e) => update("muzakki_name", e.target.value)} className="w-full border rounded-lg px-3 py-2" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">No HP *</label>
+              <input value={form.muzakki_phone} onChange={(e) => update("muzakki_phone", e.target.value)} className="w-full border rounded-lg px-3 py-2" required />
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold mb-4">Zakat Fitrah Uang</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Jumlah Jiwa</label>
+              <input type="number" min="0" value={form.fitrah_jiwa} onChange={(e) => update("fitrah_jiwa", parseInt(e.target.value) || 0)} className="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Harga Beras per Jiwa</label>
+              <input type="number" min="0" value={form.rice_price_per_jiwa} onChange={(e) => update("rice_price_per_jiwa", parseFloat(e.target.value) || 0)} className="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Jumlah Zakat Fitrah</label>
+              <div className="border rounded-lg px-3 py-2 bg-gray-50 font-medium">{formatCurrency(fitrahMoney)}</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold mb-4">Zakat Fitrah Beras</h2>
+          <div className="max-w-xs">
+            <label className="block text-sm font-medium mb-1">Jumlah Beras (Kg)</label>
+            <input type="number" min="0" step="0.1" value={form.fitrah_rice_kg} onChange={(e) => update("fitrah_rice_kg", parseFloat(e.target.value) || 0)} className="w-full border rounded-lg px-3 py-2" />
+          </div>
+        </section>
+
+        <section className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold mb-4">Zakat Lainnya</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { key: "maal", label: "Zakat Maal" },
+              { key: "fidyah", label: "Fidyah" },
+              { key: "infaq", label: "Infaq / Sedekah" },
+            ].map(({ key, label }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium mb-1">{label}</label>
+                <input type="number" min="0" value={form[key]} onChange={(e) => update(key, parseFloat(e.target.value) || 0)} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold mb-4">Pembayaran</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Total</label>
+              <div className="border rounded-lg px-3 py-2 bg-primary-50 font-bold text-primary-700">{formatCurrency(grandTotal)}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Pembayaran</label>
+              <input type="number" min="0" value={form.payment} onChange={(e) => update("payment", parseFloat(e.target.value) || 0)} className="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Kembalian</label>
+              <div className={`border rounded-lg px-3 py-2 font-medium ${changeMoney >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                {formatCurrency(changeMoney)}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <button type="submit" disabled={loading} className="flex items-center gap-2 bg-primary-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50">
+          {loading ? <LoadingSpinner size="sm" /> : <><Save className="h-4 w-4" /> Simpan & Preview</>}
+        </button>
+      </form>
+
+      <Modal isOpen={showPreview} onClose={() => setShowPreview(false)} title="Preview Transaksi" size="lg">
+        {preview && (
+          <div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+              <div><span className="text-gray-500">Kode:</span> <span className="font-mono font-bold">{preview.code}</span></div>
+              <div><span className="text-gray-500">Amil:</span> {preview.amil_name}</div>
+              <div><span className="text-gray-500">Muzakki:</span> {preview.muzakki_name}</div>
+              <div><span className="text-gray-500">Total:</span> <span className="font-bold">{formatCurrency(preview.grand_total)}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="text-amber-600">{preview.status}</span></div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => navigate(`/amil/riwayat/${preview.id}`)} className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm">
+                <Eye className="h-4 w-4" /> Lihat Detail & Cetak
+              </button>
+              <button onClick={() => setShowPreview(false)} className="px-4 py-2 border rounded-lg text-sm">Tutup</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}

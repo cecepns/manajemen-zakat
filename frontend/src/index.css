@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light only;
+  }
+
+  html,
+  body,
+  #root {
+    background-color: #f9fafb;
+    color: #111827;
+  }
+
+  input,
+  textarea,
+  select {
+    background-color: #ffffff;
+    color: #111827;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+    -webkit-text-fill-color: #111827;
+    caret-color: #111827;
+    transition: background-color 9999s ease-out 0s;
+  }
+}
+
+@layer components {
+  .app-main {
+    color: #111827;
+  }
+
+  .app-card {
+    background-color: #ffffff;
+    color: #111827;
+  }
+
+  .app-btn-outline {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #111827;
+  }
+
+  .app-btn-outline:hover {
+    background-color: #f9fafb;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html,
+  body,
+  #root,
+  .app-main,
+  .app-card {
+    background-color: #f9fafb;
+    color: #111827;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+}
