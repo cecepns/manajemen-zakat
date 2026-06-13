@@ -110,8 +110,20 @@ export default function DepositPage() {
             <p className="text-xs text-gray-400 mt-1">Saldo tersedia: {formatCurrency(balance?.balance)}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Password Bendahara</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border rounded-lg px-3 py-2" required />
+            <label className="block text-sm font-medium mb-1" style={{ color: "#374151" }}>Password Bendahara</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white"
+              style={{ color: "#111827" }}
+              placeholder="Password login akun bendahara"
+              required
+            />
+            <p className="text-xs mt-1.5" style={{ color: "#6b7280" }}>
+              Masukkan password login akun <strong>Bendahara</strong> atau <strong>Admin</strong> sebagai verifikasi penerimaan setoran.
+              Bendahara yang hadir mengetikkan password sendiri — Amil tidak perlu tahu password ini sebelumnya.
+            </p>
           </div>
           <button type="submit" disabled={submitting} className="w-full bg-primary-600 text-white py-2.5 rounded-lg font-medium disabled:opacity-50">
             {submitting ? "Memproses..." : "Verifikasi & Setor"}

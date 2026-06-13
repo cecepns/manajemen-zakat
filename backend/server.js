@@ -54,6 +54,31 @@ const paginationMeta = (page, limit, total) => ({
   totalPages: Math.ceil(total / limit) || 1,
 });
 
+const formatSqlDateTime = (date) => {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
+
+const paginateSql = (limit, offset) => {
+  const safeLimit = Math.min(100, Math.max(1, toInt(limit) || 10));
+  const safeOffset = Math.max(0, toInt(offset) || 0);
+  return `LIMIT ${safeLimit} OFFSET ${safeOffset}`;
+};
+
+const calcTransactionAmounts = (body, defaultRicePrice) => {
+  const jiwa = toInt(body.fitrah_jiwa);
+  const ricePrice = toNum(body.rice_price_per_jiwa) || defaultRicePrice;
+  const fitrahMoney = jiwa * ricePrice;
+  const fitrahRice = toNum(body.fitrah_rice_kg);
+  const maalAmt = toNum(body.maal);
+  const fidyahAmt = toNum(body.fidyah);
+  const infaqAmt = toNum(body.infaq);
+  const grandTotal = fitrahMoney + maalAmt + fidyahAmt + infaqAmt;
+  const paymentAmt = toNum(body.payment);
+  const changeMoney = paymentAmt - grandTotal;
+  return { jiwa, ricePrice, fitrahMoney, fitrahRice, maalAmt, fidyahAmt, infaqAmt, grandTotal, paymentAmt, changeMoney };
+};
+
 const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ success: false, message: "Token tidak ditemukan" });
@@ -152,8 +177,8 @@ const buildDateFilter = (filter, dateFrom, dateTo) => {
   if (!start && !end) return { clause: "", params: [] };
   const clauses = [];
   const params = [];
-  if (start) { clauses.push("t.transaction_date >= ?"); params.push(start); }
-  if (end) { clauses.push("t.transaction_date <= ?"); params.push(end); }
+  if (start) { clauses.push("t.transaction_date >= ?"); params.push(formatSqlDateTime(start)); }
+  if (end) { clauses.push("t.transaction_date <= ?"); params.push(formatSqlDateTime(end)); }
   return { clause: clauses.length ? ` AND ${clauses.join(" AND ")}` : "", params };
 };
 
@@ -201,8 +226,8 @@ app.get("/api/users", authMiddleware, roleMiddleware("ADMIN", "BENDAHARA"), asyn
 
     const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM users ${where}`, params);
     const [rows] = await pool.query(
-      `SELECT id, name, username, role, is_active, created_at FROM users ${where} ORDER BY ${sort} ${order} LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      `SELECT id, name, username, role, is_active, created_at FROM users ${where} ORDER BY ${sort} ${order} ${paginateSql(limit, offset)}`,
+      params
     );
     res.json({ success: true, data: rows, pagination: paginationMeta(page, limit, countRows[0].total) });
   } catch (e) {
@@ -333,8 +358,8 @@ app.get("/api/transactions", authMiddleware, async (req, res) => {
        JOIN users u ON t.amil_id = u.id
        ${where}
        ORDER BY t.transaction_date DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       ${paginateSql(limit, offset)}`,
+      params
     );
     res.json({ success: true, data: rows, pagination: paginationMeta(page, limit, countRows[0].total) });
   } catch (e) {
@@ -414,11 +439,17 @@ app.post("/api/transactions", authMiddleware, roleMiddleware("AMIL"), async (req
   }
 });
 
-app.put("/api/transactions/:id", authMiddleware, roleMiddleware("AMIL"), async (req, res) => {
+app.put("/api/transactions/:id", authMiddleware, async (req, res) => {
   try {
-    const [existing] = await pool.query("SELECT * FROM transactions WHERE id = ? AND amil_id = ?", [req.params.id, req.user.id]);
+    const isAdmin = ["ADMIN", "BENDAHARA"].includes(req.user.role);
+    const [existing] = isAdmin
+      ? await pool.query("SELECT * FROM transactions WHERE id = ?", [req.params.id])
+      : await pool.query("SELECT * FROM transactions WHERE id = ? AND amil_id = ?", [req.params.id, req.user.id]);
+
     if (!existing.length) return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan" });
-    if (existing[0].status === "PRINTED") return res.status(400).json({ success: false, message: "Transaksi sudah dicetak dan tidak bisa diedit" });
+    if (!isAdmin && existing[0].status === "PRINTED") {
+      return res.status(400).json({ success: false, message: "Transaksi sudah dicetak dan tidak bisa diedit" });
+    }
 
     const {
       muzakki_name, muzakki_phone, muzakki_address,
@@ -426,34 +457,65 @@ app.put("/api/transactions/:id", authMiddleware, roleMiddleware("AMIL"), async (
       maal, fidyah, infaq, payment,
     } = req.body;
 
-    const jiwa = toInt(fitrah_jiwa);
-    const ricePrice = toNum(rice_price_per_jiwa);
-    const fitrahMoney = jiwa * ricePrice;
-    const grandTotal = fitrahMoney + toNum(maal) + toNum(fidyah) + toNum(infaq);
-    const paymentAmt = toNum(payment);
-    if (paymentAmt < grandTotal) return res.status(400).json({ success: false, message: "Pembayaran kurang dari total" });
+    const defaultRice = toNum(await getSetting("rice_price_per_jiwa"));
+    const amounts = calcTransactionAmounts(
+      { fitrah_jiwa, rice_price_per_jiwa, fitrah_rice_kg, maal, fidyah, infaq, payment },
+      defaultRice
+    );
+    if (amounts.paymentAmt < amounts.grandTotal) {
+      return res.status(400).json({ success: false, message: "Pembayaran kurang dari total" });
+    }
 
-    await pool.query("UPDATE muzakki SET name = ?, phone = ?, address = ? WHERE id = ?", [sanitize(muzakki_name), sanitize(muzakki_phone), sanitize(muzakki_address || ""), existing[0].muzakki_id]);
+    await pool.query("UPDATE muzakki SET name = ?, phone = ?, address = ? WHERE id = ?", [
+      sanitize(muzakki_name), sanitize(muzakki_phone), sanitize(muzakki_address || ""), existing[0].muzakki_id,
+    ]);
     await pool.query(
       `UPDATE transactions SET fitrah_jiwa=?, rice_price_per_jiwa=?, fitrah_money=?, fitrah_rice_kg=?, maal=?, fidyah=?, infaq=?, grand_total=?, payment=?, change_money=? WHERE id=?`,
-      [jiwa, ricePrice, fitrahMoney, toNum(fitrah_rice_kg), toNum(maal), toNum(fidyah), toNum(infaq), grandTotal, paymentAmt, paymentAmt - grandTotal, req.params.id]
+      [
+        amounts.jiwa, amounts.ricePrice, amounts.fitrahMoney, amounts.fitrahRice,
+        amounts.maalAmt, amounts.fidyahAmt, amounts.infaqAmt, amounts.grandTotal,
+        amounts.paymentAmt, amounts.changeMoney, req.params.id,
+      ]
     );
-    await auditLog(req.user.id, "UPDATE", "transactions", req.params.id, "Update transaksi", req.ip);
+    await auditLog(req.user.id, "UPDATE", "transactions", req.params.id, `Update transaksi ${existing[0].code}`, req.ip);
     res.json({ success: true, message: "Transaksi berhasil diupdate" });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
 });
 
-app.post("/api/transactions/:id/print", authMiddleware, roleMiddleware("AMIL"), async (req, res) => {
+app.delete("/api/transactions/:id", authMiddleware, roleMiddleware("ADMIN", "BENDAHARA"), async (req, res) => {
   try {
-    const [existing] = await pool.query("SELECT * FROM transactions WHERE id = ? AND amil_id = ?", [req.params.id, req.user.id]);
+    const [existing] = await pool.query("SELECT * FROM transactions WHERE id = ?", [req.params.id]);
     if (!existing.length) return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan" });
 
-    if (existing[0].status !== "PRINTED") {
+    await pool.query("DELETE FROM receipts WHERE transaction_id = ?", [req.params.id]);
+    await pool.query("DELETE FROM transactions WHERE id = ?", [req.params.id]);
+    await auditLog(req.user.id, "DELETE", "transactions", req.params.id, `Hapus transaksi ${existing[0].code}`, req.ip);
+    res.json({ success: true, message: "Transaksi berhasil dihapus" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.post("/api/transactions/:id/print", authMiddleware, async (req, res) => {
+  try {
+    const isAdmin = ["ADMIN", "BENDAHARA"].includes(req.user.role);
+    const [existing] = isAdmin
+      ? await pool.query("SELECT * FROM transactions WHERE id = ?", [req.params.id])
+      : await pool.query("SELECT * FROM transactions WHERE id = ? AND amil_id = ?", [req.params.id, req.user.id]);
+    if (!existing.length) return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan" });
+
+    if (!isAdmin && existing[0].status !== "PRINTED") {
       await pool.query("UPDATE transactions SET status = 'PRINTED' WHERE id = ?", [req.params.id]);
       await pool.query("INSERT INTO receipts (transaction_id, printed_by) VALUES (?, ?)", [req.params.id, req.user.id]);
       await auditLog(req.user.id, "PRINT", "transactions", req.params.id, "Cetak struk", req.ip);
+    } else if (isAdmin && existing[0].status !== "PRINTED") {
+      await pool.query("UPDATE transactions SET status = 'PRINTED' WHERE id = ?", [req.params.id]);
+      await pool.query(
+        "INSERT INTO receipts (transaction_id, printed_by) VALUES (?, ?) ON DUPLICATE KEY UPDATE printed_at = printed_at",
+        [req.params.id, req.user.id]
+      );
     }
 
     const [tx] = await pool.query(
@@ -518,8 +580,8 @@ app.get("/api/deposits", authMiddleware, async (req, res) => {
        FROM deposit_bendahara d
        JOIN users u ON d.amil_id = u.id
        LEFT JOIN users v ON d.verified_by = v.id
-       ${where} ORDER BY d.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       ${where} ORDER BY d.created_at DESC ${paginateSql(limit, offset)}`,
+      params
     );
     res.json({ success: true, data: rows, pagination: paginationMeta(page, limit, countRows[0].total) });
   } catch (e) {
@@ -746,8 +808,8 @@ app.get("/api/audit-logs", authMiddleware, roleMiddleware("ADMIN", "BENDAHARA"),
 
     const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ${where}`, params);
     const [rows] = await pool.query(
-      `SELECT a.*, u.name AS user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ${where} ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      `SELECT a.*, u.name AS user_name FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ${where} ORDER BY a.created_at DESC ${paginateSql(limit, offset)}`,
+      params
     );
     res.json({ success: true, data: rows, pagination: paginationMeta(page, limit, countRows[0].total) });
   } catch (e) {

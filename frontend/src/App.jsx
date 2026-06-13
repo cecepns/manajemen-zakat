@@ -11,6 +11,8 @@ import HistoryPage from "@/pages/amil/HistoryPage";
 import TransactionDetailPage from "@/pages/amil/TransactionDetailPage";
 import DepositPage from "@/pages/amil/DepositPage";
 import AmilReportPage from "@/pages/amil/AmilReportPage";
+import AdminHistoryPage from "@/pages/admin/AdminHistoryPage";
+import AdminTransactionDetailPage from "@/pages/admin/AdminTransactionDetailPage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminAmilReportPage from "@/pages/admin/AdminAmilReportPage";
 import AdminAmilDetailPage from "@/pages/admin/AdminAmilDetailPage";
@@ -41,6 +43,8 @@ function App() {
 
           <Route element={<ProtectedRoute adminOnly><Layout /></ProtectedRoute>}>
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/riwayat" element={<AdminHistoryPage />} />
+            <Route path="/admin/riwayat/:id" element={<AdminTransactionDetailPage />} />
             <Route path="/admin/laporan-amil" element={<AdminAmilReportPage />} />
             <Route path="/admin/laporan-amil/:id" element={<AdminAmilDetailPage />} />
             <Route path="/admin/rekap" element={<AdminRekapPage />} />

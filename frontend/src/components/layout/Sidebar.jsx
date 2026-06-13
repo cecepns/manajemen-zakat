@@ -15,6 +15,7 @@ const amilLinks = [
 
 const adminLinks = [
   { to: "/admin", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/admin/riwayat", icon: History, label: "Riwayat Pembayaran" },
   { to: "/admin/laporan-amil", icon: Users, label: "Laporan Amil" },
   { to: "/admin/rekap", icon: FileText, label: "Rekap Seluruh Amil" },
   { to: "/admin/pengguna", icon: Users, label: "Pengguna" },

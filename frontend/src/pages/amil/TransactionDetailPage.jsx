@@ -1,23 +1,29 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Printer, Download, Lock } from "lucide-react";
-import { get, post } from "@/utils/request";
+import { Printer, Download, Lock, Pencil, Trash2, MessageCircle, ArrowLeft } from "lucide-react";
+import { get, post, del } from "@/utils/request";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { formatCurrency, formatDateTime } from "@/utils/format";
+import { buildReceiptWaMessage, openWhatsAppShare } from "@/utils/whatsapp";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ReceiptSlip } from "@/components/receipt/ReceiptSlip";
+import { TransactionEditModal } from "@/components/transactions/TransactionEditModal";
 import { Modal } from "@/components/ui/Modal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-export default function TransactionDetailPage() {
+export default function TransactionDetailPage({ isAdmin = false }) {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const listPath = isAdmin ? "/admin/riwayat" : "/amil/riwayat";
   const [tx, setTx] = useState(null);
   const [printData, setPrintData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchTx = () => {
     get(API_ENDPOINTS.TRANSACTIONS.DETAIL(id))
@@ -34,7 +40,7 @@ export default function TransactionDetailPage() {
       setPrintData(res.data);
       setShowReceipt(true);
       fetchTx();
-      toast.success("Struk siap dicetak. Data terkunci.");
+      if (!isAdmin) toast.success("Struk siap dicetak. Data terkunci.");
     } catch (err) {
       toast.error(err.response?.data?.message || "Gagal mencetak");
     } finally {
@@ -42,8 +48,24 @@ export default function TransactionDetailPage() {
     }
   };
 
-  const handlePrintWindow = () => {
-    window.print();
+  const handleWhatsApp = () => {
+    const data = printData?.transaction || tx;
+    if (!data) return;
+    openWhatsAppShare(data.muzakki_phone, buildReceiptWaMessage(data));
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Hapus transaksi ${tx.code}? Tindakan ini tidak dapat dibatalkan.`)) return;
+    setDeleting(true);
+    try {
+      await del(API_ENDPOINTS.TRANSACTIONS.DELETE(id));
+      toast.success("Transaksi berhasil dihapus");
+      navigate(listPath);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gagal menghapus");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -60,30 +82,35 @@ export default function TransactionDetailPage() {
   };
 
   if (loading) return <LoadingSpinner className="py-20" />;
-  if (!tx) return <p>Transaksi tidak ditemukan</p>;
+  if (!tx) return <p style={{ color: "#111827" }}>Transaksi tidak ditemukan</p>;
 
   const isLocked = tx.status === "PRINTED";
+  const canEdit = isAdmin || !isLocked;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Detail Pembayaran</h1>
+      <Link to={listPath} className="inline-flex items-center gap-1 text-sm text-primary-600 mb-4 hover:text-primary-700">
+        <ArrowLeft className="h-4 w-4" /> Kembali ke Riwayat
+      </Link>
 
-      <div className="bg-white rounded-xl border p-6 max-w-2xl">
+      <h1 className="text-2xl font-bold mb-6" style={{ color: "#111827" }}>Detail Pembayaran</h1>
+
+      <div className="app-card rounded-xl border p-6 max-w-2xl">
         <div className="flex items-center justify-between mb-4">
-          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{tx.code}</span>
+          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded" style={{ color: "#111827" }}>{tx.code}</span>
           <span className={`text-xs px-2 py-1 rounded-full ${isLocked ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
             {isLocked ? "Terkunci" : "Draft"}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6" style={{ color: "#111827" }}>
           <div><span className="text-gray-500">Tanggal:</span> {formatDateTime(tx.transaction_date)}</div>
           <div><span className="text-gray-500">Amil:</span> {tx.amil_name}</div>
           <div><span className="text-gray-500">Muzakki:</span> {tx.muzakki_name}</div>
           <div><span className="text-gray-500">HP:</span> {tx.muzakki_phone}</div>
         </div>
 
-        <div className="border rounded-lg p-4 space-y-2 text-sm mb-6">
+        <div className="border rounded-lg p-4 space-y-2 text-sm mb-6" style={{ color: "#111827" }}>
           {tx.fitrah_money > 0 && <div className="flex justify-between"><span>Zakat Fitrah Uang ({tx.fitrah_jiwa} jiwa)</span><span>{formatCurrency(tx.fitrah_money)}</span></div>}
           {tx.fitrah_rice_kg > 0 && <div className="flex justify-between"><span>Zakat Fitrah Beras</span><span>{tx.fitrah_rice_kg} Kg</span></div>}
           {tx.maal > 0 && <div className="flex justify-between"><span>Zakat Maal</span><span>{formatCurrency(tx.maal)}</span></div>}
@@ -94,15 +121,28 @@ export default function TransactionDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 no-print">
+          {canEdit && (
+            <button onClick={() => setShowEdit(true)} className="flex items-center gap-2 app-btn-outline px-4 py-2 rounded-lg text-sm">
+              <Pencil className="h-4 w-4" /> Edit
+            </button>
+          )}
+          {isAdmin && (
+            <button onClick={handleDelete} disabled={deleting} className="flex items-center gap-2 border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+              <Trash2 className="h-4 w-4" /> {deleting ? "Menghapus..." : "Hapus"}
+            </button>
+          )}
           <button onClick={handlePrint} disabled={printing} className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50">
             {printing ? <LoadingSpinner size="sm" /> : <><Printer className="h-4 w-4" /> {isLocked ? "Lihat Struk" : "Cetak Struk"}</>}
           </button>
+          <button onClick={handleWhatsApp} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
+            <MessageCircle className="h-4 w-4" /> Kirim WA
+          </button>
           {isLocked && (
-            <button onClick={handleDownloadPDF} className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm hover:bg-gray-50">
+            <button onClick={handleDownloadPDF} className="flex items-center gap-2 app-btn-outline px-4 py-2 rounded-lg text-sm">
               <Download className="h-4 w-4" /> Download PDF
             </button>
           )}
-          {isLocked && (
+          {!isAdmin && isLocked && (
             <div className="flex items-center gap-1 text-xs text-gray-400 ml-2">
               <Lock className="h-3 w-3" /> Data terkunci setelah cetak
             </div>
@@ -110,16 +150,21 @@ export default function TransactionDetailPage() {
         </div>
       </div>
 
+      <TransactionEditModal
+        isOpen={showEdit}
+        onClose={() => setShowEdit(false)}
+        transaction={tx}
+        onSaved={fetchTx}
+      />
+
       <Modal isOpen={showReceipt} onClose={() => setShowReceipt(false)} title="Slip Pembayaran" size="sm">
         {printData && (
           <div>
-            <ReceiptSlip
-              transaction={printData.transaction}
-              settings={printData.settings}
-            />
-            <div className="flex gap-2 mt-4 no-print">
-              <button onClick={handlePrintWindow} className="flex-1 bg-primary-600 text-white py-2 rounded-lg text-sm">Cetak</button>
-              <button onClick={handleDownloadPDF} className="flex-1 border py-2 rounded-lg text-sm">PDF</button>
+            <ReceiptSlip transaction={printData.transaction} settings={printData.settings} />
+            <div className="flex flex-wrap gap-2 mt-4 no-print">
+              <button onClick={() => window.print()} className="flex-1 bg-primary-600 text-white py-2 rounded-lg text-sm">Cetak</button>
+              <button onClick={handleDownloadPDF} className="flex-1 app-btn-outline py-2 rounded-lg text-sm">PDF</button>
+              <button onClick={handleWhatsApp} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm">Kirim WA</button>
             </div>
           </div>
         )}
