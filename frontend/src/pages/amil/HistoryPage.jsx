@@ -39,9 +39,11 @@ export default function HistoryPage({ isAdmin = false }) {
       limit,
       search: debouncedSearch,
       filter,
-      date_from: dateFrom || undefined,
-      date_to: dateTo || undefined,
     };
+    if (filter === "custom") {
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+    }
     if (isAdmin && amilId) params.amil_id = amilId;
 
     get(API_ENDPOINTS.TRANSACTIONS.LIST, params)

@@ -23,6 +23,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || "zakat_db",
   waitForConnections: true,
   connectionLimit: 10,
+  timezone: "+07:00",
 });
 
 app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", credentials: true }));
@@ -53,11 +54,6 @@ const paginationMeta = (page, limit, total) => ({
   total,
   totalPages: Math.ceil(total / limit) || 1,
 });
-
-const formatSqlDateTime = (date) => {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-};
 
 const paginateSql = (limit, offset) => {
   const safeLimit = Math.min(100, Math.max(1, toInt(limit) || 10));
@@ -148,38 +144,41 @@ const getAmilBalance = async (amilId) => {
   return { totalReceived, totalDeposited, balance: totalReceived - totalDeposited };
 };
 
+const parseDateOnly = (value) => {
+  const raw = sanitize(String(value || "")).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+};
+
+/** Preset filters use MySQL CURDATE() so boundaries match stored DATETIME (WIB). */
 const buildDateFilter = (filter, dateFrom, dateTo) => {
-  const now = new Date();
-  let start, end;
   switch (filter) {
     case "today":
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-      break;
-    case "week": {
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      start = new Date(now.getFullYear(), now.getMonth(), diff);
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-      break;
-    }
+      return { clause: " AND DATE(t.transaction_date) = CURDATE()", params: [] };
+    case "week":
+      return { clause: " AND YEARWEEK(t.transaction_date, 1) = YEARWEEK(CURDATE(), 1)", params: [] };
     case "month":
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-      break;
-    case "custom":
-      if (dateFrom) start = new Date(dateFrom);
-      if (dateTo) end = new Date(dateTo + "T23:59:59");
-      break;
+      return {
+        clause: " AND YEAR(t.transaction_date) = YEAR(CURDATE()) AND MONTH(t.transaction_date) = MONTH(CURDATE())",
+        params: [],
+      };
+    case "custom": {
+      const from = parseDateOnly(dateFrom);
+      const to = parseDateOnly(dateTo);
+      const clauses = [];
+      const params = [];
+      if (from) {
+        clauses.push("DATE(t.transaction_date) >= ?");
+        params.push(from);
+      }
+      if (to) {
+        clauses.push("DATE(t.transaction_date) <= ?");
+        params.push(to);
+      }
+      return { clause: clauses.length ? ` AND ${clauses.join(" AND ")}` : "", params };
+    }
     default:
       return { clause: "", params: [] };
   }
-  if (!start && !end) return { clause: "", params: [] };
-  const clauses = [];
-  const params = [];
-  if (start) { clauses.push("t.transaction_date >= ?"); params.push(formatSqlDateTime(start)); }
-  if (end) { clauses.push("t.transaction_date <= ?"); params.push(formatSqlDateTime(end)); }
-  return { clause: clauses.length ? ` AND ${clauses.join(" AND ")}` : "", params };
 };
 
 // ==================== AUTH ====================
@@ -336,7 +335,11 @@ app.get("/api/transactions", authMiddleware, async (req, res) => {
     const search = sanitize(req.query.search) || "";
     const offset = (page - 1) * limit;
     const amilId = req.user.role === "AMIL" ? req.user.id : (req.query.amil_id ? toInt(req.query.amil_id) : null);
-    const { clause: dateClause, params: dateParams } = buildDateFilter(req.query.filter, req.query.date_from, req.query.date_to);
+    const { clause: dateClause, params: dateParams } = buildDateFilter(
+      req.query.filter || "month",
+      req.query.date_from,
+      req.query.date_to
+    );
 
     let where = "WHERE 1=1";
     const params = [...dateParams];

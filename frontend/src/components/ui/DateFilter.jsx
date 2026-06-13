@@ -8,7 +8,13 @@ export const DateFilter = ({ filter, onChange, dateFrom, dateTo, onDateFromChang
     ].map((f) => (
       <button
         key={f.value}
-        onClick={() => onChange(f.value)}
+        onClick={() => {
+          onChange(f.value);
+          if (f.value !== "custom") {
+            onDateFromChange?.("");
+            onDateToChange?.("");
+          }
+        }}
         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
           filter === f.value
             ? "bg-primary-600 text-white"
