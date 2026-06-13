@@ -19,7 +19,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setLoading(true);
-    get(API_ENDPOINTS.DASHBOARD.ADMIN, { filter, date_from: dateFrom, date_to: dateTo })
+    const params = { filter };
+    if (filter === "custom") {
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+    }
+    get(API_ENDPOINTS.DASHBOARD.ADMIN, params)
       .then((res) => setData(res.data))
       .finally(() => setLoading(false));
   }, [filter, dateFrom, dateTo]);
@@ -40,7 +45,7 @@ export default function AdminDashboard() {
   const amilChart = per_amil.map((a) => ({ name: a.name, total: parseFloat(a.total) }));
 
   return (
-    <div>
+      <div className="min-w-0">
       <h1 className="text-2xl font-bold mb-6" style={{ color: "#111827" }}>Dashboard Admin</h1>
       <div className="mb-6"><DateFilter filter={filter} onChange={setFilter} dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} /></div>
 

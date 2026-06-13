@@ -6,6 +6,7 @@ import { API_ENDPOINTS } from "@/utils/endpoints";
 import { formatCurrency } from "@/utils/format";
 import { DateFilter } from "@/components/ui/DateFilter";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 
 export default function AdminAmilDetailPage() {
   const { id } = useParams();
@@ -45,8 +46,7 @@ export default function AdminAmilDetailPage() {
       <h1 className="text-2xl font-bold mb-2">Detail Amil: {amil.name}</h1>
       <div className="mb-4"><DateFilter filter={filter} onChange={setFilter} dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} /></div>
 
-      <div className="bg-white rounded-xl border overflow-hidden max-w-lg">
-        <table className="w-full text-sm">
+      <ResponsiveTable className="max-w-lg" minWidth="320px">
           <thead className="bg-gray-50 border-b">
             <tr><th className="text-left p-3">Data</th><th className="text-right p-3">Nilai</th></tr>
           </thead>
@@ -58,8 +58,7 @@ export default function AdminAmilDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+      </ResponsiveTable>
     </div>
   );
 }

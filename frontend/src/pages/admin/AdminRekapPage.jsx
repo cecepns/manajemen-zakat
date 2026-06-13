@@ -7,6 +7,7 @@ import { formatCurrency } from "@/utils/format";
 import { exportSummaryToExcel, exportSummaryToPdf } from "@/utils/export";
 import { DateFilter } from "@/components/ui/DateFilter";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 
 export default function AdminRekapPage() {
   const [report, setReport] = useState(null);
@@ -59,8 +60,7 @@ export default function AdminRekapPage() {
       <div className="mb-4"><DateFilter filter={filter} onChange={setFilter} dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} /></div>
 
       {loading ? <LoadingSpinner className="py-12" /> : (
-        <div className="bg-white rounded-xl border overflow-hidden max-w-lg">
-          <table className="w-full text-sm">
+        <ResponsiveTable className="max-w-lg" minWidth="320px">
             <thead className="bg-gray-50 border-b">
               <tr><th className="text-left p-3">Jenis</th><th className="text-right p-3">Total</th></tr>
             </thead>
@@ -72,8 +72,7 @@ export default function AdminRekapPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

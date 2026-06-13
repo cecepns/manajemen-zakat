@@ -7,6 +7,7 @@ import { formatCurrency } from "@/utils/format";
 import { DateFilter } from "@/components/ui/DateFilter";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 
 export default function AdminAmilReportPage() {
   const [data, setData] = useState([]);
@@ -28,8 +29,7 @@ export default function AdminAmilReportPage() {
       <div className="mb-4"><DateFilter filter={filter} onChange={setFilter} dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} /></div>
 
       {loading ? <LoadingSpinner className="py-12" /> : data.length === 0 ? <EmptyState /> : (
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <table className="w-full text-sm">
+        <ResponsiveTable minWidth="480px">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left p-3">Nama Amil</th>
@@ -50,8 +50,7 @@ export default function AdminAmilReportPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

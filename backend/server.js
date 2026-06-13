@@ -140,8 +140,35 @@ const getAmilBalance = async (amilId) => {
     [amilId]
   );
   const totalReceived = parseFloat(received[0].total);
-  const totalDeposited = parseFloat(deposited[0].total);
-  return { totalReceived, totalDeposited, balance: totalReceived - totalDeposited };
+  const totalDepositedRaw = parseFloat(deposited[0].total);
+  const totalDeposited = totalReceived > 0 ? totalDepositedRaw : 0;
+  const balance = Math.max(0, totalReceived - totalDepositedRaw);
+  return { totalReceived, totalDeposited, balance };
+};
+
+const getOrgDepositStats = async () => {
+  const [rows] = await pool.query(
+    `SELECT
+       COALESCE(SUM(GREATEST(0, received - deposited)), 0) AS total_held,
+       COALESCE(SUM(CASE WHEN received > 0 THEN deposited ELSE 0 END), 0) AS total_deposited
+     FROM (
+       SELECT u.id,
+         COALESCE((
+           SELECT SUM(grand_total) FROM transactions
+           WHERE amil_id = u.id AND status = 'PRINTED'
+         ), 0) AS received,
+         COALESCE((
+           SELECT SUM(amount) FROM deposit_bendahara
+           WHERE amil_id = u.id AND status = 'VERIFIED'
+         ), 0) AS deposited
+       FROM users u
+       WHERE u.role = 'AMIL' AND u.is_active = 1
+     ) balances`
+  );
+  return {
+    total_held_by_amil: parseFloat(rows[0].total_held) || 0,
+    total_deposited: parseFloat(rows[0].total_deposited) || 0,
+  };
 };
 
 const parseDateOnly = (value) => {
@@ -692,22 +719,15 @@ app.get("/api/dashboard/admin", authMiddleware, roleMiddleware("ADMIN", "BENDAHA
       params
     );
 
-    const [deposits] = await pool.query(
-      "SELECT COALESCE(SUM(amount), 0) AS total FROM deposit_bendahara WHERE status = 'VERIFIED'"
-    );
-
-    const [held] = await pool.query(
-      `SELECT COALESCE(SUM(t.grand_total), 0) - COALESCE((SELECT SUM(amount) FROM deposit_bendahara WHERE status = 'VERIFIED'), 0) AS total
-       FROM transactions t WHERE status = 'PRINTED'`
-    );
+    const orgStats = await getOrgDepositStats();
 
     res.json({
       success: true,
       data: {
         summary: receipts[0],
         per_amil: perAmil,
-        total_deposited: parseFloat(deposits[0].total),
-        total_held_by_amil: parseFloat(held[0].total) || 0,
+        total_deposited: orgStats.total_deposited,
+        total_held_by_amil: orgStats.total_held_by_amil,
       },
     });
   } catch (e) {

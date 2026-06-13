@@ -42,7 +42,7 @@ export const Layout = () => {
             </button>
           </div>
         </header>
-        <main className="app-main p-4 md:p-6">
+        <main className="app-main p-4 md:p-6 min-w-0 max-w-full">
           <Outlet />
         </main>
       </div>

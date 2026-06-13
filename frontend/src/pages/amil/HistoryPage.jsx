@@ -9,6 +9,7 @@ import { DateFilter } from "@/components/ui/DateFilter";
 import { Pagination } from "@/components/ui/Pagination";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TableScroll } from "@/components/ui/ResponsiveTable";
 
 export default function HistoryPage({ isAdmin = false }) {
   const basePath = isAdmin ? "/admin/riwayat" : "/amil/riwayat";
@@ -91,9 +92,8 @@ export default function HistoryPage({ isAdmin = false }) {
       {loading ? <LoadingSpinner className="py-12" /> : data.length === 0 ? (
         <EmptyState title="Belum ada transaksi" />
       ) : (
-        <div className="app-card rounded-xl border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <div className="app-card rounded-xl border overflow-hidden min-w-0">
+          <TableScroll minWidth="720px">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left p-3 font-medium" style={{ color: "#374151" }}>Kode</th>
@@ -128,8 +128,7 @@ export default function HistoryPage({ isAdmin = false }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </TableScroll>
           <div className="p-3"><Pagination pagination={pagination} onPageChange={setPage} onLimitChange={(l) => { setLimit(l); setPage(1); }} /></div>
         </div>
       )}

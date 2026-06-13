@@ -7,6 +7,7 @@ import { formatCurrency } from "@/utils/format";
 import { exportSummaryToExcel, exportSummaryToPdf, exportTransactionsToExcel } from "@/utils/export";
 import { DateFilter } from "@/components/ui/DateFilter";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 
 export default function AmilReportPage() {
   const [report, setReport] = useState(null);
@@ -71,8 +72,7 @@ export default function AmilReportPage() {
       <div className="mb-4"><DateFilter filter={filter} onChange={setFilter} dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} /></div>
 
       {loading ? <LoadingSpinner className="py-12" /> : (
-        <div className="bg-white rounded-xl border overflow-hidden max-w-lg">
-          <table className="w-full text-sm">
+        <ResponsiveTable className="max-w-lg" minWidth="320px">
             <thead className="bg-gray-50 border-b">
               <tr><th className="text-left p-3">Data</th><th className="text-right p-3">Nilai</th></tr>
             </thead>
@@ -84,8 +84,7 @@ export default function AmilReportPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

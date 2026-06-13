@@ -8,6 +8,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Modal } from "@/components/ui/Modal";
 import { Pagination } from "@/components/ui/Pagination";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function DepositPage() {
@@ -75,31 +76,33 @@ export default function DepositPage() {
 
       <h2 className="text-lg font-semibold mb-3">Histori Setoran</h2>
       {deposits.length === 0 ? <EmptyState title="Belum ada setoran" /> : (
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <table className="w-full text-sm">
+        <>
+          <ResponsiveTable minWidth="520px">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3">Tanggal</th>
-                <th className="text-right p-3">Nominal</th>
-                <th className="text-left p-3">Amil</th>
-                <th className="text-center p-3">Status</th>
+                <th className="text-left p-3 whitespace-nowrap">Tanggal</th>
+                <th className="text-right p-3 whitespace-nowrap">Nominal</th>
+                <th className="text-left p-3 whitespace-nowrap">Amil</th>
+                <th className="text-center p-3 whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody>
               {deposits.map((d) => (
                 <tr key={d.id} className="border-b">
-                  <td className="p-3">{formatDateTime(d.created_at)}</td>
-                  <td className="p-3 text-right font-medium">{formatCurrency(d.amount)}</td>
-                  <td className="p-3">{d.amil_name}</td>
-                  <td className="p-3 text-center">
+                  <td className="p-3 whitespace-nowrap">{formatDateTime(d.created_at)}</td>
+                  <td className="p-3 text-right font-medium whitespace-nowrap">{formatCurrency(d.amount)}</td>
+                  <td className="p-3 whitespace-nowrap">{d.amil_name}</td>
+                  <td className="p-3 text-center whitespace-nowrap">
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{d.status}</span>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-          <div className="p-3"><Pagination pagination={pagination} onPageChange={setPage} onLimitChange={(l) => { setLimit(l); setPage(1); }} /></div>
-        </div>
+          </ResponsiveTable>
+          <div className="p-3 bg-white rounded-xl border border-t-0 -mt-px">
+            <Pagination pagination={pagination} onPageChange={setPage} onLimitChange={(l) => { setLimit(l); setPage(1); }} />
+          </div>
+        </>
       )}
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Setor ke Bendahara">
