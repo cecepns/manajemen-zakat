@@ -55,6 +55,12 @@ export const ReceiptSlip = ({ transaction, settings }) => {
         <p className="text-[10px] text-gray-400 mt-2">Scan untuk verifikasi</p>
       </div>
 
+      {settings?.org_doa && (
+        <div className="mt-4 border-t border-dashed pt-3 text-center text-[10px] leading-relaxed text-gray-600 italic px-2">
+          {settings.org_doa}
+        </div>
+      )}
+
       <div className="mt-6 text-center">
         <div className="border-t border-gray-300 w-32 mx-auto pt-1">
           <p className="text-xs">{transaction.amil_name}</p>

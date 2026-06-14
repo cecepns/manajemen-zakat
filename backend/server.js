@@ -141,7 +141,7 @@ const getAmilBalance = async (amilId) => {
   );
   const totalReceived = parseFloat(received[0].total);
   const totalDepositedRaw = parseFloat(deposited[0].total);
-  const totalDeposited = totalReceived > 0 ? totalDepositedRaw : 0;
+  const totalDeposited = Math.min(totalDepositedRaw, totalReceived);
   const balance = Math.max(0, totalReceived - totalDepositedRaw);
   return { totalReceived, totalDeposited, balance };
 };
@@ -150,7 +150,7 @@ const getOrgDepositStats = async () => {
   const [rows] = await pool.query(
     `SELECT
        COALESCE(SUM(GREATEST(0, received - deposited)), 0) AS total_held,
-       COALESCE(SUM(CASE WHEN received > 0 THEN deposited ELSE 0 END), 0) AS total_deposited
+       COALESCE(SUM(CASE WHEN received > 0 THEN LEAST(deposited, received) ELSE 0 END), 0) AS total_deposited
      FROM (
        SELECT u.id,
          COALESCE((
@@ -509,6 +509,22 @@ app.put("/api/transactions/:id", authMiddleware, async (req, res) => {
     );
     await auditLog(req.user.id, "UPDATE", "transactions", req.params.id, `Update transaksi ${existing[0].code}`, req.ip);
     res.json({ success: true, message: "Transaksi berhasil diupdate" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.delete("/api/transactions/all", authMiddleware, roleMiddleware("ADMIN", "BENDAHARA"), async (req, res) => {
+  try {
+    const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM transactions");
+    const total = countRows[0].total;
+    if (!total) return res.json({ success: true, message: "Tidak ada transaksi untuk dihapus", data: { deleted: 0 } });
+
+    await pool.query("DELETE FROM receipts");
+    await pool.query("DELETE FROM transactions");
+    await pool.query("DELETE FROM deposit_bendahara");
+    await auditLog(req.user.id, "DELETE", "transactions", null, `Hapus semua transaksi (${total} data) + reset setoran`, req.ip);
+    res.json({ success: true, message: `${total} transaksi berhasil dihapus`, data: { deleted: total } });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }

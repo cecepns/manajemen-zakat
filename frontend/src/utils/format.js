@@ -13,7 +13,12 @@ export const formatDateTime = (date) =>
 export const parseCurrency = (value) => {
   if (typeof value === "number") return value;
   if (value === "" || value === null || value === undefined) return 0;
-  return parseFloat(String(value).replace(/[^\d]/g, "")) || 0;
+  const str = String(value).trim();
+  // Nilai dari API MySQL DECIMAL, mis. "40000.00"
+  if (/^\d+(\.\d+)?$/.test(str)) return parseFloat(str) || 0;
+  // Format Rupiah: "80.000" atau "80.000,50"
+  const normalized = str.replace(/\./g, "").replace(",", ".");
+  return parseFloat(normalized.replace(/[^\d.]/g, "")) || 0;
 };
 
 export const toNumber = (value) => {

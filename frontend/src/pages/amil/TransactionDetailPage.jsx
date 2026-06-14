@@ -134,9 +134,11 @@ export default function TransactionDetailPage({ isAdmin = false }) {
           <button onClick={handlePrint} disabled={printing} className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50">
             {printing ? <LoadingSpinner size="sm" /> : <><Printer className="h-4 w-4" /> {isLocked ? "Lihat Struk" : "Cetak Struk"}</>}
           </button>
-          <button onClick={handleWhatsApp} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-            <MessageCircle className="h-4 w-4" /> Kirim WA
-          </button>
+          {isLocked && (
+            <button onClick={handleWhatsApp} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
+              <MessageCircle className="h-4 w-4" /> Kirim WA
+            </button>
+          )}
           {isLocked && (
             <button onClick={handleDownloadPDF} className="flex items-center gap-2 app-btn-outline px-4 py-2 rounded-lg text-sm">
               <Download className="h-4 w-4" /> Download PDF
@@ -164,7 +166,9 @@ export default function TransactionDetailPage({ isAdmin = false }) {
             <div className="flex flex-wrap gap-2 mt-4 no-print">
               <button onClick={() => window.print()} className="flex-1 bg-primary-600 text-white py-2 rounded-lg text-sm">Cetak</button>
               <button onClick={handleDownloadPDF} className="flex-1 app-btn-outline py-2 rounded-lg text-sm">PDF</button>
-              <button onClick={handleWhatsApp} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm">Kirim WA</button>
+              {tx.status === "PRINTED" && (
+                <button onClick={handleWhatsApp} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm">Kirim WA</button>
+              )}
             </div>
           </div>
         )}

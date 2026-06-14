@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, Eye } from "lucide-react";
-import { get } from "@/utils/request";
+import toast from "react-hot-toast";
+import { Search, Eye, Trash2 } from "lucide-react";
+import { get, del } from "@/utils/request";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { formatCurrency, formatDateTime } from "@/utils/format";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -24,6 +25,7 @@ export default function HistoryPage({ isAdmin = false }) {
   const [amilId, setAmilId] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [deletingAll, setDeletingAll] = useState(false);
   const debouncedSearch = useDebounce(search);
 
   useEffect(() => {
@@ -55,11 +57,45 @@ export default function HistoryPage({ isAdmin = false }) {
 
   useEffect(() => { fetchData(); }, [page, limit, debouncedSearch, filter, dateFrom, dateTo, amilId, isAdmin]);
 
+  const handleDeleteAll = async () => {
+    const confirmed = window.confirm(
+      "Hapus SEMUA transaksi dan reset data setoran?\n\nTindakan ini tidak dapat dibatalkan."
+    );
+    if (!confirmed) return;
+
+    const typed = window.prompt('Ketik "HAPUS SEMUA" untuk konfirmasi:');
+    if (typed !== "HAPUS SEMUA") return toast.error("Konfirmasi tidak valid");
+
+    setDeletingAll(true);
+    try {
+      const res = await del(API_ENDPOINTS.TRANSACTIONS.DELETE_ALL);
+      toast.success(res.message || "Semua transaksi dihapus");
+      setPage(1);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gagal menghapus semua transaksi");
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ color: "#111827" }}>
-        {isAdmin ? "Riwayat Pembayaran (Semua Amil)" : "Riwayat Pembayaran"}
-      </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold" style={{ color: "#111827" }}>
+          {isAdmin ? "Riwayat Pembayaran (Semua Amil)" : "Riwayat Pembayaran"}
+        </h1>
+        {isAdmin && (
+          <button
+            onClick={handleDeleteAll}
+            disabled={deletingAll}
+            className="inline-flex items-center gap-2 border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            {deletingAll ? "Menghapus..." : "Hapus Semua Transaksi"}
+          </button>
+        )}
+      </div>
 
       <div className="app-card rounded-xl border p-4 mb-4 space-y-3">
         <DateFilter filter={filter} onChange={(v) => { setFilter(v); setPage(1); }} dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={(v) => { setDateFrom(v); setPage(1); }} onDateToChange={(v) => { setDateTo(v); setPage(1); }} />

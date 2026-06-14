@@ -82,6 +82,20 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <div className="bg-white rounded-xl border p-5 space-y-4">
+          <h2 className="font-semibold">Doa Struk</h2>
+          <div>
+            <label className="block text-sm font-medium mb-1">Doa (muncul di slip pembayaran)</label>
+            <textarea
+              rows={4}
+              value={settings.org_doa || ""}
+              onChange={(e) => setSettings({ ...settings, org_doa: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Doa yang akan ditampilkan di struk..."
+            />
+          </div>
+        </div>
+
         <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50">
           {saving ? <LoadingSpinner size="sm" /> : <><Save className="h-4 w-4" /> Simpan Pengaturan</>}
         </button>

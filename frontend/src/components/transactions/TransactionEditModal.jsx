@@ -17,13 +17,13 @@ export const TransactionEditModal = ({ isOpen, onClose, transaction, onSaved }) 
       muzakki_name: transaction.muzakki_name || "",
       muzakki_phone: transaction.muzakki_phone || "",
       muzakki_address: transaction.muzakki_address || "",
-      fitrah_jiwa: transaction.fitrah_jiwa || "",
-      rice_price_per_jiwa: transaction.rice_price_per_jiwa || "",
-      fitrah_rice_kg: transaction.fitrah_rice_kg || "",
-      maal: transaction.maal || "",
-      fidyah: transaction.fidyah || "",
-      infaq: transaction.infaq || "",
-      payment: transaction.payment || "",
+      fitrah_jiwa: transaction.fitrah_jiwa ?? "",
+      rice_price_per_jiwa: toNumber(transaction.rice_price_per_jiwa) || "",
+      fitrah_rice_kg: toNumber(transaction.fitrah_rice_kg) || "",
+      maal: toNumber(transaction.maal) || "",
+      fidyah: toNumber(transaction.fidyah) || "",
+      infaq: toNumber(transaction.infaq) || "",
+      payment: toNumber(transaction.payment) || "",
     });
   }, [transaction]);
 

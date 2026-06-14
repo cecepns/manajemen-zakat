@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
     CREATE: "/transactions",
     UPDATE: (id) => `/transactions/${id}`,
     DELETE: (id) => `/transactions/${id}`,
+    DELETE_ALL: "/transactions/all",
     PRINT: (id) => `/transactions/${id}/print`,
   },
   VERIFY: {

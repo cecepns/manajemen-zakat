@@ -1,10 +1,11 @@
-import { formatNumber, parseCurrency } from "@/utils/format";
+import { formatNumber, toNumber } from "@/utils/format";
 
 export const CurrencyInput = ({ value, onChange, className = "", placeholder = "0" }) => {
+  const numeric = typeof value === "number" ? value : toNumber(value);
   const display =
     value === "" || value === null || value === undefined
       ? ""
-      : formatNumber(typeof value === "number" ? value : parseCurrency(value));
+      : formatNumber(numeric);
 
   const handleChange = (e) => {
     const digits = e.target.value.replace(/\D/g, "");

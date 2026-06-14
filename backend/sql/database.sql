@@ -116,7 +116,8 @@ INSERT INTO settings (setting_key, setting_value) VALUES
   ('rice_price_per_jiwa', '20000'),
   ('org_name', 'Lembaga Zakat'),
   ('org_address', 'Jl. Contoh No. 1'),
-  ('org_phone', '081234567890')
+  ('org_phone', '081234567890'),
+  ('org_doa', 'Semoga Allah Subhanahu wa ta''ala memberikan pahala kepadamu atas apa yang engkau berikan, dan semoga Allah Subhanahu wa ta''ala memberikan berkah atas hartamu yang masih tersisa, dan menjadikannya sebagai pembersih bagi mu')
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
 
 -- Default users (password: admin123 / amil123)
