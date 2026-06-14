@@ -3,39 +3,27 @@ import toast from "react-hot-toast";
 import { Wallet, ArrowUpCircle } from "lucide-react";
 import { get, post } from "@/utils/request";
 import { API_ENDPOINTS } from "@/utils/endpoints";
-import { formatCurrency, formatDateTime } from "@/utils/format";
+import { formatCurrency } from "@/utils/format";
 import { StatCard } from "@/components/ui/StatCard";
 import { Modal } from "@/components/ui/Modal";
-import { Pagination } from "@/components/ui/Pagination";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
-import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function DepositPage() {
   const [balance, setBalance] = useState(null);
-  const [deposits, setDeposits] = useState([]);
-  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [amount, setAmount] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
 
-  const fetchAll = () => {
+  const fetchBalance = () => {
     setLoading(true);
-    Promise.all([
-      get(API_ENDPOINTS.DEPOSITS.BALANCE),
-      get(API_ENDPOINTS.DEPOSITS.LIST, { page, limit }),
-    ]).then(([bal, dep]) => {
-      setBalance(bal.data);
-      setDeposits(dep.data);
-      setPagination(dep.pagination);
-    }).finally(() => setLoading(false));
+    get(API_ENDPOINTS.DEPOSITS.BALANCE)
+      .then((res) => setBalance(res.data))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchAll(); }, [page, limit]);
+  useEffect(() => { fetchBalance(); }, []);
 
   const handleDeposit = async (e) => {
     e.preventDefault();
@@ -50,7 +38,7 @@ export default function DepositPage() {
       setShowModal(false);
       setAmount("");
       setPassword("");
-      fetchAll();
+      fetchBalance();
     } catch (err) {
       toast.error(err.response?.data?.message || "Setoran gagal");
     } finally {
@@ -70,40 +58,9 @@ export default function DepositPage() {
         <StatCard title="Sisa Saldo" value={formatCurrency(balance?.balance)} icon={Wallet} color="amber" />
       </div>
 
-      <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-primary-700 mb-6">
+      <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-primary-700">
         <ArrowUpCircle className="h-5 w-5" /> Setor ke Bendahara
       </button>
-
-      <h2 className="text-lg font-semibold mb-3">Histori Setoran</h2>
-      {deposits.length === 0 ? <EmptyState title="Belum ada setoran" /> : (
-        <>
-          <ResponsiveTable minWidth="520px">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-left p-3 whitespace-nowrap">Tanggal</th>
-                <th className="text-right p-3 whitespace-nowrap">Nominal</th>
-                <th className="text-left p-3 whitespace-nowrap">Amil</th>
-                <th className="text-center p-3 whitespace-nowrap">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deposits.map((d) => (
-                <tr key={d.id} className="border-b">
-                  <td className="p-3 whitespace-nowrap">{formatDateTime(d.created_at)}</td>
-                  <td className="p-3 text-right font-medium whitespace-nowrap">{formatCurrency(d.amount)}</td>
-                  <td className="p-3 whitespace-nowrap">{d.amil_name}</td>
-                  <td className="p-3 text-center whitespace-nowrap">
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{d.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </ResponsiveTable>
-          <div className="p-3 bg-white rounded-xl border border-t-0 -mt-px">
-            <Pagination pagination={pagination} onPageChange={setPage} onLimitChange={(l) => { setLimit(l); setPage(1); }} />
-          </div>
-        </>
-      )}
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Setor ke Bendahara">
         <form onSubmit={handleDeposit} className="space-y-4">
