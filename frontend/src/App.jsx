@@ -20,7 +20,7 @@ import AdminRekapPage from "@/pages/admin/AdminRekapPage";
 import UsersPage from "@/pages/admin/UsersPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import AuditLogPage from "@/pages/admin/AuditLogPage";
-import BackupPage from "@/pages/admin/BackupPage";
+import AdminDepositsPage from "@/pages/admin/AdminDepositsPage";
 
 function App() {
   return (
@@ -48,6 +48,7 @@ function App() {
             <Route path="/admin/laporan-amil" element={<AdminAmilReportPage />} />
             <Route path="/admin/laporan-amil/:id" element={<AdminAmilDetailPage />} />
             <Route path="/admin/rekap" element={<AdminRekapPage />} />
+            <Route path="/admin/setoran" element={<AdminDepositsPage />} />
             <Route path="/admin/pengguna" element={<UsersPage />} />
             <Route path="/admin/pengaturan" element={<SettingsPage />} />
             <Route path="/admin/audit" element={<AuditLogPage />} />

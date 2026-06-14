@@ -18,6 +18,7 @@ const adminLinks = [
   { to: "/admin/riwayat", icon: History, label: "Riwayat Pembayaran" },
   { to: "/admin/laporan-amil", icon: Users, label: "Laporan Amil" },
   { to: "/admin/rekap", icon: FileText, label: "Rekap Seluruh Amil" },
+  { to: "/admin/setoran", icon: Wallet, label: "Riwayat Setoran" },
   { to: "/admin/pengguna", icon: Users, label: "Pengguna" },
   { to: "/admin/pengaturan", icon: Settings, label: "Pengaturan" },
   { to: "/admin/audit", icon: Shield, label: "Audit Log" },

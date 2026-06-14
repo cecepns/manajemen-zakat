@@ -31,6 +31,7 @@ export const API_ENDPOINTS = {
     LIST: "/deposits",
     BALANCE: "/deposits/balance",
     CREATE: "/deposits",
+    DELETE: (id) => `/deposits/${id}`,
   },
   DASHBOARD: {
     AMIL: "/dashboard/amil",

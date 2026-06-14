@@ -39,7 +39,7 @@ export default function AmilDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="Total Penerimaan" value={formatCurrency(month.total_received)} icon={Coins} />
         <StatCard title="Saldo di Amil" value={formatCurrency(month.balance)} icon={Wallet} color="amber" />
-        <StatCard title="Saldo Disetor" value={formatCurrency(month.totalDeposited)} icon={Wallet} color="blue" />
+        <StatCard title="Total Disetor" value={formatCurrency(month.totalDeposited)} icon={Wallet} color="blue" />
       </div>
     </div>
   );
