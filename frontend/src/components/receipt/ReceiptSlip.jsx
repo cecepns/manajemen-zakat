@@ -3,14 +3,14 @@ import { formatCurrency, formatDateTime } from "@/utils/format";
 import { buildVerifyUrl } from "@/utils/export";
 import { resolveUploadUrl } from "@/utils/config";
 
-export const ReceiptSlip = ({ transaction, settings }) => {
+export const ReceiptSlip = ({ transaction, settings, elementId = "receipt-print" }) => {
   const orgName = settings?.org_name || "Lembaga Zakat";
   const orgAddress = settings?.org_address || "";
   const orgLogo = settings?.org_logo;
   const verifyUrl = buildVerifyUrl(transaction.code);
 
   return (
-    <div id="receipt-print" className="bg-white p-6 max-w-sm mx-auto font-mono text-sm">
+    <div id={elementId} className="bg-white p-6 max-w-sm mx-auto font-mono text-sm">
       <div className="text-center border-b border-dashed pb-4 mb-4">
         {orgLogo && <img src={resolveUploadUrl(orgLogo)} alt="Logo" className="h-12 mx-auto mb-2" />}
         <h2 className="font-bold text-base">{orgName}</h2>

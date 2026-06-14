@@ -5,7 +5,7 @@ import { Printer, Download, Lock, Pencil, Trash2, MessageCircle, ArrowLeft } fro
 import { get, post, del } from "@/utils/request";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { formatCurrency, formatDateTime } from "@/utils/format";
-import { buildReceiptWaMessage, openWhatsAppShare } from "@/utils/whatsapp";
+import { shareReceiptViaWhatsApp } from "@/utils/whatsapp";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ReceiptSlip } from "@/components/receipt/ReceiptSlip";
 import { TransactionEditModal } from "@/components/transactions/TransactionEditModal";
@@ -24,6 +24,8 @@ export default function TransactionDetailPage({ isAdmin = false }) {
   const [showReceipt, setShowReceipt] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sharingWa, setSharingWa] = useState(false);
+  const [captureData, setCaptureData] = useState(null);
 
   const fetchTx = () => {
     get(API_ENDPOINTS.TRANSACTIONS.DETAIL(id))
@@ -48,10 +50,62 @@ export default function TransactionDetailPage({ isAdmin = false }) {
     }
   };
 
-  const handleWhatsApp = () => {
-    const data = printData?.transaction || tx;
-    if (!data) return;
-    openWhatsAppShare(data.muzakki_phone, buildReceiptWaMessage(data));
+  const handleWhatsApp = async () => {
+    setSharingWa(true);
+    try {
+      let data = printData;
+      if (!data) {
+        const res = await post(API_ENDPOINTS.TRANSACTIONS.PRINT(id));
+        data = res.data;
+        setPrintData(data);
+      }
+
+      setCaptureData(data);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const result = await shareReceiptViaWhatsApp({
+        elementId: showReceipt ? "receipt-print" : "receipt-capture",
+        phone: data.transaction.muzakki_phone,
+        filename: `struk-${data.transaction.code}.jpg`,
+      });
+
+      if (result.method === "download") {
+        toast.success("Gambar struk diunduh. Lampirkan di WhatsApp ke muzakki.");
+      } else if (result.method === "share") {
+        toast.success("Pilih WhatsApp untuk kirim gambar struk");
+      }
+    } catch (err) {
+      toast.error(err.message || "Gagal menyiapkan gambar struk");
+    } finally {
+      setSharingWa(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    let data = printData || captureData;
+    if (!data) {
+      const res = await post(API_ENDPOINTS.TRANSACTIONS.PRINT(id));
+      data = res.data;
+      setPrintData(data);
+      setCaptureData(data);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+
+    const elementId = showReceipt ? "receipt-print" : "receipt-capture";
+    const element = document.getElementById(elementId);
+    if (!element) {
+      toast.error("Struk belum siap");
+      return;
+    }
+
+    const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+    const img = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [80, 200] });
+    const imgWidth = 70;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    pdf.addImage(img, "PNG", 5, 5, imgWidth, imgHeight);
+    pdf.save(`struk-${tx.code}.pdf`);
+    toast.success("PDF berhasil diunduh");
   };
 
   const handleDelete = async () => {
@@ -66,19 +120,6 @@ export default function TransactionDetailPage({ isAdmin = false }) {
     } finally {
       setDeleting(false);
     }
-  };
-
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById("receipt-print");
-    if (!element) return;
-    const canvas = await html2canvas(element, { scale: 2 });
-    const img = canvas.toDataURL("image/png");
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [80, 200] });
-    const imgWidth = 70;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    pdf.addImage(img, "PNG", 5, 5, imgWidth, imgHeight);
-    pdf.save(`struk-${tx.code}.pdf`);
-    toast.success("PDF berhasil diunduh");
   };
 
   if (loading) return <LoadingSpinner className="py-20" />;
@@ -135,8 +176,9 @@ export default function TransactionDetailPage({ isAdmin = false }) {
             {printing ? <LoadingSpinner size="sm" /> : <><Printer className="h-4 w-4" /> {isLocked ? "Lihat Struk" : "Cetak Struk"}</>}
           </button>
           {isLocked && (
-            <button onClick={handleWhatsApp} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-              <MessageCircle className="h-4 w-4" /> Kirim WA
+            <button onClick={handleWhatsApp} disabled={sharingWa} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
+              {sharingWa ? <LoadingSpinner size="sm" /> : <MessageCircle className="h-4 w-4" />}
+              {sharingWa ? "Menyiapkan..." : "Kirim WA"}
             </button>
           )}
           {isLocked && (
@@ -167,12 +209,24 @@ export default function TransactionDetailPage({ isAdmin = false }) {
               <button onClick={() => window.print()} className="flex-1 bg-primary-600 text-white py-2 rounded-lg text-sm">Cetak</button>
               <button onClick={handleDownloadPDF} className="flex-1 app-btn-outline py-2 rounded-lg text-sm">PDF</button>
               {tx.status === "PRINTED" && (
-                <button onClick={handleWhatsApp} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm">Kirim WA</button>
+                <button onClick={handleWhatsApp} disabled={sharingWa} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm disabled:opacity-50">
+                  {sharingWa ? "Menyiapkan..." : "Kirim WA"}
+                </button>
               )}
             </div>
           </div>
         )}
       </Modal>
+
+      {(captureData || printData) && !showReceipt && (
+        <div className="fixed left-0 top-0 -z-50 opacity-0 pointer-events-none w-[360px]" aria-hidden="true">
+          <ReceiptSlip
+            elementId="receipt-capture"
+            transaction={(captureData || printData).transaction}
+            settings={(captureData || printData).settings}
+          />
+        </div>
+      )}
     </div>
   );
 }

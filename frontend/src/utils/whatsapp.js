@@ -1,5 +1,4 @@
-import { formatCurrency, formatDateTime } from "@/utils/format";
-import { buildVerifyUrl } from "@/utils/export";
+import { captureReceiptImage } from "@/utils/receiptImage";
 
 export const formatWaPhone = (phone) => {
   const digits = String(phone || "").replace(/\D/g, "");
@@ -9,35 +8,38 @@ export const formatWaPhone = (phone) => {
   return `62${digits}`;
 };
 
-export const buildReceiptWaMessage = (tx) => {
-  const lines = [
-    "*SLIP PEMBAYARAN ZAKAT*",
-    "",
-    `Kode: ${tx.code}`,
-    `Tanggal: ${formatDateTime(tx.transaction_date)}`,
-    `Muzakki: ${tx.muzakki_name}`,
-    `Amil: ${tx.amil_name}`,
-    "",
-  ];
+/**
+ * Bagikan struk sebagai gambar JPG.
+ * Mobile: Web Share API → pilih WhatsApp (gambar terlampir).
+ * Desktop: unduh JPG + buka chat WA (lampirkan manual).
+ */
+export const shareReceiptViaWhatsApp = async ({
+  elementId = "receipt-capture",
+  phone,
+  filename = "struk-zakat.jpg",
+}) => {
+  const blob = await captureReceiptImage(elementId);
+  const file = new File([blob], filename, { type: "image/jpeg" });
 
-  if (tx.fitrah_money > 0) lines.push(`Zakat Fitrah: ${formatCurrency(tx.fitrah_money)}`);
-  if (tx.fitrah_rice_kg > 0) lines.push(`Zakat Fitrah (Beras): ${tx.fitrah_rice_kg} Kg`);
-  if (tx.maal > 0) lines.push(`Zakat Maal: ${formatCurrency(tx.maal)}`);
-  if (tx.fidyah > 0) lines.push(`Fidyah: ${formatCurrency(tx.fidyah)}`);
-  if (tx.infaq > 0) lines.push(`Infaq/Sadaqah: ${formatCurrency(tx.infaq)}`);
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: "Struk Pembayaran Zakat" });
+      return { method: "share" };
+    } catch (err) {
+      if (err?.name === "AbortError") return { method: "cancelled" };
+      throw err;
+    }
+  }
 
-  lines.push("", `*Total: ${formatCurrency(tx.grand_total)}*`);
-  lines.push(`Bayar: ${formatCurrency(tx.payment)} | Kembalian: ${formatCurrency(tx.change_money)}`);
-  lines.push("", `Verifikasi: ${buildVerifyUrl(tx.code)}`);
-  lines.push("", "Terima kasih.");
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 
-  return lines.join("\n");
-};
-
-export const openWhatsAppShare = (phone, message) => {
   const waPhone = formatWaPhone(phone);
-  const url = waPhone
-    ? `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`
-    : `https://wa.me/?text=${encodeURIComponent(message)}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+  window.open(waPhone ? `https://wa.me/${waPhone}` : "https://wa.me/", "_blank", "noopener,noreferrer");
+
+  return { method: "download" };
 };
