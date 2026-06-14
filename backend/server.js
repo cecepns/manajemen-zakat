@@ -140,9 +140,8 @@ const getAmilBalance = async (amilId) => {
     [amilId]
   );
   const totalReceived = parseFloat(received[0].total);
-  const totalDepositedRaw = parseFloat(deposited[0].total);
-  const totalDeposited = Math.min(totalDepositedRaw, totalReceived);
-  const balance = Math.max(0, totalReceived - totalDepositedRaw);
+  const totalDeposited = parseFloat(deposited[0].total);
+  const balance = Math.max(0, totalReceived - totalDeposited);
   return { totalReceived, totalDeposited, balance };
 };
 
@@ -150,7 +149,7 @@ const getOrgDepositStats = async () => {
   const [rows] = await pool.query(
     `SELECT
        COALESCE(SUM(GREATEST(0, received - deposited)), 0) AS total_held,
-       COALESCE(SUM(CASE WHEN received > 0 THEN LEAST(deposited, received) ELSE 0 END), 0) AS total_deposited
+       COALESCE(SUM(deposited), 0) AS total_deposited
      FROM (
        SELECT u.id,
          COALESCE((
@@ -614,13 +613,21 @@ app.get("/api/deposits", authMiddleware, async (req, res) => {
     const page = Math.max(1, toInt(req.query.page) || 1);
     const limit = [10, 25, 50, 100].includes(toInt(req.query.limit)) ? toInt(req.query.limit) : 10;
     const offset = (page - 1) * limit;
+    const search = sanitize(req.query.search) || "";
     const amilId = req.user.role === "AMIL" ? req.user.id : (req.query.amil_id ? toInt(req.query.amil_id) : null);
 
     let where = "WHERE 1=1";
     const params = [];
     if (amilId) { where += " AND d.amil_id = ?"; params.push(amilId); }
+    if (search) {
+      where += " AND u.name LIKE ?";
+      params.push(`%${search}%`);
+    }
 
-    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM deposit_bendahara d ${where}`, params);
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total FROM deposit_bendahara d JOIN users u ON d.amil_id = u.id ${where}`,
+      params
+    );
     const [rows] = await pool.query(
       `SELECT d.*, u.name AS amil_name, v.name AS verified_by_name
        FROM deposit_bendahara d
@@ -630,6 +637,30 @@ app.get("/api/deposits", authMiddleware, async (req, res) => {
       params
     );
     res.json({ success: true, data: rows, pagination: paginationMeta(page, limit, countRows[0].total) });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.delete("/api/deposits/:id", authMiddleware, roleMiddleware("ADMIN", "BENDAHARA"), async (req, res) => {
+  try {
+    const [existing] = await pool.query(
+      `SELECT d.*, u.name AS amil_name FROM deposit_bendahara d
+       JOIN users u ON d.amil_id = u.id WHERE d.id = ?`,
+      [req.params.id]
+    );
+    if (!existing.length) return res.status(404).json({ success: false, message: "Setoran tidak ditemukan" });
+
+    await pool.query("DELETE FROM deposit_bendahara WHERE id = ?", [req.params.id]);
+    await auditLog(
+      req.user.id,
+      "DELETE",
+      "deposit_bendahara",
+      req.params.id,
+      `Hapus setoran ${existing[0].amil_name} Rp${existing[0].amount}`,
+      req.ip
+    );
+    res.json({ success: true, message: "Setoran berhasil dihapus" });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }

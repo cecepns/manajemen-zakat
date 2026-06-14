@@ -21,6 +21,7 @@ import UsersPage from "@/pages/admin/UsersPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import AuditLogPage from "@/pages/admin/AuditLogPage";
 import AdminDepositsPage from "@/pages/admin/AdminDepositsPage";
+import BackupPage from "@/pages/admin/BackupPage";
 
 function App() {
   return (
