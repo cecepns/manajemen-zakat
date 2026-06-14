@@ -686,7 +686,7 @@ app.post("/api/deposits", authMiddleware, roleMiddleware("AMIL"), async (req, re
     if (!bendahara.length) return res.status(400).json({ success: false, message: "Bendahara tidak ditemukan" });
 
     const valid = await bcrypt.compare(bendaharaPassword, bendahara[0].password);
-    if (!valid) return res.status(401).json({ success: false, message: "Password bendahara salah" });
+    if (!valid) return res.status(400).json({ success: false, message: "Password bendahara salah" });
 
     const balance = await getAmilBalance(req.user.id);
     if (amount > balance.balance) return res.status(400).json({ success: false, message: "Saldo tidak mencukupi" });

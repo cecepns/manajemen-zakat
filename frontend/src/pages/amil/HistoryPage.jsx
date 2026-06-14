@@ -11,6 +11,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TableScroll } from "@/components/ui/ResponsiveTable";
+import { showTypedConfirm } from "@/components/ui/ConfirmTypedToast";
 
 export default function HistoryPage({ isAdmin = false }) {
   const basePath = isAdmin ? "/admin/riwayat" : "/amil/riwayat";
@@ -57,26 +58,26 @@ export default function HistoryPage({ isAdmin = false }) {
 
   useEffect(() => { fetchData(); }, [page, limit, debouncedSearch, filter, dateFrom, dateTo, amilId, isAdmin]);
 
-  const handleDeleteAll = async () => {
-    const confirmed = window.confirm(
-      "Hapus SEMUA transaksi dan reset data setoran?\n\nTindakan ini tidak dapat dibatalkan."
-    );
-    if (!confirmed) return;
-
-    const typed = window.prompt('Ketik "HAPUS SEMUA" untuk konfirmasi:');
-    if (typed !== "HAPUS SEMUA") return toast.error("Konfirmasi tidak valid");
-
-    setDeletingAll(true);
-    try {
-      const res = await del(API_ENDPOINTS.TRANSACTIONS.DELETE_ALL);
-      toast.success(res.message || "Semua transaksi dihapus");
-      setPage(1);
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Gagal menghapus semua transaksi");
-    } finally {
-      setDeletingAll(false);
-    }
+  const handleDeleteAll = () => {
+    showTypedConfirm({
+      title: "Hapus Semua Transaksi",
+      message: "Semua transaksi dan data setoran akan dihapus. Tindakan ini tidak dapat dibatalkan.",
+      confirmText: "HAPUS SEMUA",
+      confirmLabel: "Hapus Semua",
+      onConfirm: async () => {
+        setDeletingAll(true);
+        try {
+          const res = await del(API_ENDPOINTS.TRANSACTIONS.DELETE_ALL);
+          toast.success(res.message || "Semua transaksi dihapus");
+          setPage(1);
+          fetchData();
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Gagal menghapus semua transaksi");
+        } finally {
+          setDeletingAll(false);
+        }
+      },
+    });
   };
 
   return (

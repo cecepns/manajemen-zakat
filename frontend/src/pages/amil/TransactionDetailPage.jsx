@@ -5,9 +5,10 @@ import { Printer, Download, Lock, Pencil, Trash2, MessageCircle, ArrowLeft } fro
 import { get, post, del } from "@/utils/request";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { formatCurrency, formatDateTime } from "@/utils/format";
-import { shareReceiptViaWhatsApp } from "@/utils/whatsapp";
+import { shareReceiptTextViaWhatsApp, shareReceiptImageViaWhatsApp, buildReceiptWaMessage } from "@/utils/whatsapp";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ReceiptSlip } from "@/components/receipt/ReceiptSlip";
+import { WaShareModal } from "@/components/receipt/WaShareModal";
 import { TransactionEditModal } from "@/components/transactions/TransactionEditModal";
 import { Modal } from "@/components/ui/Modal";
 import html2canvas from "html2canvas";
@@ -25,7 +26,60 @@ export default function TransactionDetailPage({ isAdmin = false }) {
   const [showEdit, setShowEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sharingWa, setSharingWa] = useState(false);
+  const [showWaModal, setShowWaModal] = useState(false);
   const [captureData, setCaptureData] = useState(null);
+
+  const ensureReceiptData = async () => {
+    if (printData) return printData;
+    const res = await post(API_ENDPOINTS.TRANSACTIONS.PRINT(id));
+    setPrintData(res.data);
+    return res.data;
+  };
+
+  const prepareCapture = async (data) => {
+    setCaptureData(data);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return showReceipt ? "receipt-print" : "receipt-capture";
+  };
+
+  const handleWaText = async () => {
+    try {
+      const data = await ensureReceiptData();
+      shareReceiptTextViaWhatsApp(
+        data.transaction.muzakki_phone,
+        buildReceiptWaMessage(data.transaction, data.settings)
+      );
+      setShowWaModal(false);
+      toast.success("WhatsApp dibuka dengan teks struk + doa");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gagal menyiapkan teks struk");
+    }
+  };
+
+  const handleWaImage = async () => {
+    setSharingWa(true);
+    try {
+      const data = await ensureReceiptData();
+      const elementId = await prepareCapture(data);
+
+      const result = await shareReceiptImageViaWhatsApp({
+        elementId,
+        phone: data.transaction.muzakki_phone,
+        filename: `struk-${data.transaction.code}.jpg`,
+      });
+
+      if (result.method === "download") {
+        toast.success("Gambar diunduh. Buka WA ke muzakki lalu lampirkan foto.");
+      } else if (result.method === "share") {
+        toast.success("Pilih WhatsApp, lalu kirim ke kontak muzakki");
+        setShowWaModal(false);
+      }
+    } catch (err) {
+      toast.error(err.message || "Gagal menyiapkan gambar struk");
+    } finally {
+      setSharingWa(false);
+    }
+  };
 
   const fetchTx = () => {
     get(API_ENDPOINTS.TRANSACTIONS.DETAIL(id))
@@ -50,36 +104,7 @@ export default function TransactionDetailPage({ isAdmin = false }) {
     }
   };
 
-  const handleWhatsApp = async () => {
-    setSharingWa(true);
-    try {
-      let data = printData;
-      if (!data) {
-        const res = await post(API_ENDPOINTS.TRANSACTIONS.PRINT(id));
-        data = res.data;
-        setPrintData(data);
-      }
-
-      setCaptureData(data);
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-      const result = await shareReceiptViaWhatsApp({
-        elementId: showReceipt ? "receipt-print" : "receipt-capture",
-        phone: data.transaction.muzakki_phone,
-        filename: `struk-${data.transaction.code}.jpg`,
-      });
-
-      if (result.method === "download") {
-        toast.success("Gambar struk diunduh. Lampirkan di WhatsApp ke muzakki.");
-      } else if (result.method === "share") {
-        toast.success("Pilih WhatsApp untuk kirim gambar struk");
-      }
-    } catch (err) {
-      toast.error(err.message || "Gagal menyiapkan gambar struk");
-    } finally {
-      setSharingWa(false);
-    }
-  };
+  const handleWhatsApp = () => setShowWaModal(true);
 
   const handleDownloadPDF = async () => {
     let data = printData || captureData;
@@ -176,9 +201,8 @@ export default function TransactionDetailPage({ isAdmin = false }) {
             {printing ? <LoadingSpinner size="sm" /> : <><Printer className="h-4 w-4" /> {isLocked ? "Lihat Struk" : "Cetak Struk"}</>}
           </button>
           {isLocked && (
-            <button onClick={handleWhatsApp} disabled={sharingWa} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
-              {sharingWa ? <LoadingSpinner size="sm" /> : <MessageCircle className="h-4 w-4" />}
-              {sharingWa ? "Menyiapkan..." : "Kirim WA"}
+            <button onClick={handleWhatsApp} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
+              <MessageCircle className="h-4 w-4" /> Kirim WA
             </button>
           )}
           {isLocked && (
@@ -209,14 +233,23 @@ export default function TransactionDetailPage({ isAdmin = false }) {
               <button onClick={() => window.print()} className="flex-1 bg-primary-600 text-white py-2 rounded-lg text-sm">Cetak</button>
               <button onClick={handleDownloadPDF} className="flex-1 app-btn-outline py-2 rounded-lg text-sm">PDF</button>
               {tx.status === "PRINTED" && (
-                <button onClick={handleWhatsApp} disabled={sharingWa} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm disabled:opacity-50">
-                  {sharingWa ? "Menyiapkan..." : "Kirim WA"}
+                <button onClick={handleWhatsApp} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm">
+                  Kirim WA
                 </button>
               )}
             </div>
           </div>
         )}
       </Modal>
+
+      <WaShareModal
+        isOpen={showWaModal}
+        onClose={() => setShowWaModal(false)}
+        phone={tx.muzakki_phone}
+        onShareText={handleWaText}
+        onShareImage={handleWaImage}
+        sharingImage={sharingWa}
+      />
 
       {(captureData || printData) && !showReceipt && (
         <div className="fixed left-0 top-0 -z-50 opacity-0 pointer-events-none w-[360px]" aria-hidden="true">

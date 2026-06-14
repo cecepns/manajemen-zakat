@@ -80,10 +80,10 @@ export default function DepositPage() {
               placeholder="Password login akun bendahara"
               required
             />
-            <p className="text-xs mt-1.5" style={{ color: "#6b7280" }}>
+            {/* <p className="text-xs mt-1.5" style={{ color: "#6b7280" }}>
               Masukkan password login akun <strong>Bendahara</strong> atau <strong>Admin</strong> sebagai verifikasi penerimaan setoran.
               Bendahara yang hadir mengetikkan password sendiri — Amil tidak perlu tahu password ini sebelumnya.
-            </p>
+            </p> */}
           </div>
           <button type="submit" disabled={submitting} className="w-full bg-primary-600 text-white py-2.5 rounded-lg font-medium disabled:opacity-50">
             {submitting ? "Memproses..." : "Verifikasi & Setor"}
