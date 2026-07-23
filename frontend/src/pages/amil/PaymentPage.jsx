@@ -62,7 +62,7 @@ export default function PaymentPage() {
     e.preventDefault();
     if (!form.muzakki_name || !form.muzakki_phone) return toast.error("Nama dan HP wajib diisi");
     if (paymentAmount < grandTotal) return toast.error("Pembayaran kurang dari total");
-    if (grandTotal <= 0) return toast.error("Total zakat harus lebih dari 0");
+    if (grandTotal <= 0 && toNumber(form.fitrah_rice_kg) <= 0) return toast.error("Total zakat atau beras harus lebih dari 0");
 
     setLoading(true);
     try {
